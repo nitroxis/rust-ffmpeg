@@ -247,7 +247,7 @@ impl Ref for Packet {
 }
 
 impl Mut for Packet {
-	fn as_mut_ptr(&mut self) -> *mut AVPacket {
+	fn as_mut_ptr(&mut self) -> *mut AVPacket { 
 		&mut self.0
 	}
 }
@@ -264,7 +264,8 @@ impl Clone for Packet {
 	#[inline]
 	fn clone_from(&mut self, source: &Self) {
 		unsafe {
-			av_copy_packet(&mut self.0, &source.0);
+			//av_copy_packet(&mut self.0, &source.0);
+			av_packet_ref(&mut self.0, &source.0);
 		}
 	}
 }
