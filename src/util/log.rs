@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, cell::RefCell};
+use std::cell::RefCell;
 
 use libc::{c_char, c_int, c_void};
 use log;
