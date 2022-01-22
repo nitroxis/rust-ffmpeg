@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{borrow::Borrow, cell::RefCell};
 
 use libc::{c_char, c_int, c_void};
 use log;
@@ -35,21 +35,18 @@ unsafe extern "C" fn callback(_ptr: *mut c_void, level: c_int, fmt: *const c_cha
 
 	if let Some(level) = level.to_level() {
 		LOG_BUF.with(|buf| {
-			let split = string.split('\n').collect::<Vec<_>>();
-			let last_index = split.len() - 1;
+			let mut split = string.split('\n').peekable();
 
-			for (index, str) in split.into_iter().enumerate() {
-				if index == last_index {
+			while let Some(str) = split.next() {
+				if split.peek().is_none() {
 					// Last item without \n at the end, append to buffer.
-					buf.replace_with(|buf| buf.clone() + str);
-				}
-				else if index == 0 {
-					// First item, prepend buffered string.
-					log::log!(target: "ffmpeg", level, "{}", buf.replace(String::new()) + str);
+					*buf.borrow_mut() += str;
 				}
 				else {
-					// Normal line.
-					log::log!(target: "ffmpeg", level, "{}", str);
+					// Prepend buffered string.
+					let mut buffered = buf.borrow_mut();
+					log::log!(target: "ffmpeg", level, "{buffered}{str}");
+					buffered.clear();
 				}
 			}
 		});
