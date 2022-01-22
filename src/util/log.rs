@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use libc::{c_char, c_int, c_void};
 use log;
 use vsprintf::vsprintf;
@@ -16,6 +18,10 @@ pub fn set_level(level: log::Level) {
 	}
 }
 
+thread_local! {
+	static LOG_BUF: RefCell<String> = RefCell::new(String::new());
+}
+
 unsafe extern "C" fn callback(_ptr: *mut c_void, level: c_int, fmt: *const c_char, args: *mut __va_list_tag) {
 	let string = vsprintf(fmt, args).unwrap();
 	let level = match level {
@@ -28,7 +34,25 @@ unsafe extern "C" fn callback(_ptr: *mut c_void, level: c_int, fmt: *const c_cha
 	};
 
 	if let Some(level) = level.to_level() {
-		log::log!(target: "ffmpeg", level, "{}", string.trim());
+		LOG_BUF.with(|buf| {
+			let split = string.split('\n').collect::<Vec<_>>();
+			let last_index = split.len() - 1;
+
+			for (index, str) in split.into_iter().enumerate() {
+				if index == last_index {
+					// Last item without \n at the end, append to buffer.
+					buf.replace_with(|buf| buf.clone() + str);
+				}
+				else if index == 0 {
+					// First item, prepend buffered string.
+					log::log!(target: "ffmpeg", level, "{}", buf.replace(String::new()) + str);
+				}
+				else {
+					// Normal line.
+					log::log!(target: "ffmpeg", level, "{}", str);
+				}
+			}
+		});
 	}
 }
 
